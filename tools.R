@@ -1,38 +1,61 @@
-
 #rm(list = ls())
+
+mot_recherche <- "statisti" # Remplace par le mot que tu veux rechercher
 
 library(pdftools)
 n = stringr::str_locate(getwd(),"Documents")[2]
 datadir = paste0(stringr::str_sub(getwd(),1,n),"/data/jo/")
 rm(n)
+
 pdf_file <- paste0(datadir,"joe_20240901_0208_p000.pdf")
 text <- pdf_text(pdf_file)
-mot_recherche <- "dgac" # Remplace par le mot que tu veux rechercher
 
+# Initialiser un dataframe pour stocker les résultats
+resultats_df <- data.frame(
+  Page = integer(),
+  Ligne = integer(),
+  Char_Start = integer(),
+  Char_End = integer(),
+  Texte = character(),
+  stringsAsFactors = FALSE
+)
 
-# Rechercher un mot spécifique dans le texte
-mot_trouve <- grepl(mot_recherche, text, ignore.case = TRUE)
-# Afficher les résultats
-if(any(mot_trouve)) {
-  cat("Le mot", mot_recherche, "a été trouvé dans le document.\n")
-} else {
-  cat("Le mot", mot_recherche, "n'a pas été trouvé dans le document.\n")
-}
-
-# Extraire les lignes contenant le mot recherché
-lignes_avec_mot <- unlist(lapply(text, function(page) {
+# Parcourir chaque page du document
+for (i in seq_along(text)) {
   # Découper la page en lignes
-  lignes <- unlist(strsplit(page, "\n"))
-  # Filtrer les lignes contenant le mot recherché
-  lignes_avec_mot <- lignes[grepl(mot_recherche, lignes, ignore.case = TRUE)]
-  return(lignes_avec_mot)
-}))
-
-# Vérifier si des lignes ont été trouvées
-if(length(lignes_avec_mot) > 0) {
-  # Enregistrer les lignes dans un fichier texte
-  writeLines(lignes_avec_mot, "lignes_avec_mot.txt")
-  cat("Les lignes contenant le mot", mot_recherche, "ont été enregistrées dans 'lignes_avec_mot.txt'.\n")
-} else {
-  cat("Aucune ligne contenant le mot", mot_recherche, "n'a été trouvée dans le document.\n")
+  lignes <- unlist(strsplit(text[[i]], "\n"))
+  
+  # Parcourir chaque ligne avec son numéro
+  for (j in seq_along(lignes)) {
+    # Chercher toutes les occurrences du mot dans la ligne
+    positions <- gregexpr(mot_recherche, lignes[j], ignore.case = TRUE)[[1]]
+    
+    # Si le mot est trouvé dans la ligne
+    if (positions[1] != -1) {
+      for (pos in positions) {
+        # Ajouter une ligne au dataframe pour chaque occurrence trouvée
+        resultats_df <- rbind(resultats_df, data.frame(
+          Page = i,
+          Ligne = j,
+          Char_Start = pos,
+          Char_End = pos + nchar(mot_recherche) - 1,
+          Texte = lignes[j],
+          stringsAsFactors = FALSE
+        ))
+      }
+    }
+  }
 }
+
+nb = nrow(resultats_df)
+# Vérifier si des lignes ont été trouvées
+if(nb > 0) {
+  # Enregistrer les résultats dans un fichier CSV
+  #write.csv(resultats_df, "resultats_recherche.csv", row.names = FALSE)
+  cat(nb,"lignes contiennent le mot", mot_recherche)
+} else {
+  cat("Aucune ligne contient le mot", mot_recherche)
+}
+
+# Afficher le dataframe des résultats
+#print(resultats_df)
